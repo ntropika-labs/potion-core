@@ -257,7 +257,7 @@ contract Liquidatable is PricelessPositionManager {
         // Scoping to get rid of a stack too deep error.
         {
             // The actual amount of collateral that gets moved to the liquidation.
-            lockedCollateral = (strikePrice.sub(assetPrice)).mul(tokensLiquidated);
+            lockedCollateral = tokensLiquidated.mul(strikePrice.sub(assetPrice));
             if (startCollateral.isLessThanOrEqual(lockedCollateral)) {
                 lockedCollateral = startCollateral;
             }
@@ -395,8 +395,7 @@ contract Liquidatable is PricelessPositionManager {
         // Note: all payouts are scaled by the unit collateral value so all payouts are charged the fees pro rata.
         FixedPoint.Unsigned memory feeAttenuation = _getFeeAdjustedCollateral(liquidation.rawUnitCollateral);
         FixedPoint.Unsigned memory tokenRedemptionValue = liquidation
-            .tokensOutstanding
-            .mul(liquidation.settlementPrice)
+            .tokensOutstanding.mul(strikePrice.sub(liquidation.settlementPrice))
             .mul(feeAttenuation);
         FixedPoint.Unsigned memory collateral = liquidation.lockedCollateral.mul(feeAttenuation);
         FixedPoint.Unsigned memory disputerDisputeReward = disputerDisputeRewardPct.mul(tokenRedemptionValue);

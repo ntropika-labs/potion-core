@@ -36,6 +36,7 @@ contract ExpiringMultiPartyCreator is ContractCreator, Testable, Lockable {
         FixedPoint.Unsigned sponsorDisputeRewardPct;
         FixedPoint.Unsigned disputerDisputeRewardPct;
         FixedPoint.Unsigned minSponsorTokens;
+        FixedPoint.Unsigned strikePrice; //Set the strike Price of the put contract.
     }
     // - Whitelist allowed collateral currencies.
     // Note: before an instantiation of ExpiringMultipartyCreator is approved to register contracts, voters should
@@ -155,5 +156,6 @@ contract ExpiringMultiPartyCreator is ContractCreator, Testable, Lockable {
         constructorParams.sponsorDisputeRewardPct = params.sponsorDisputeRewardPct;
         constructorParams.disputerDisputeRewardPct = params.disputerDisputeRewardPct;
         constructorParams.minSponsorTokens = params.minSponsorTokens;
+        constructorParams.strikePrice = params.strikePrice;
     }
 }

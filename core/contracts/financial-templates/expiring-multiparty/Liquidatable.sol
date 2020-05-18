@@ -48,6 +48,7 @@ contract Liquidatable is PricelessPositionManager {
         address disputer; // Person who is disputing a liquidation
         // Following variable set upon a resolution of a dispute:
         FixedPoint.Unsigned settlementPrice; // Final price as determined by an Oracle following a dispute
+        FixedPoint.Unsigned proposedAssetPrice; // asset price as proposed by liquidator
         FixedPoint.Unsigned finalFee;
     }
 
@@ -65,6 +66,7 @@ contract Liquidatable is PricelessPositionManager {
         string syntheticName;
         string syntheticSymbol;
         FixedPoint.Unsigned minSponsorTokens;
+        FixedPoint.Unsigned strikePrice;
         // Params specifically for Liquidatable.
         uint256 liquidationLiveness;
         FixedPoint.Unsigned collateralRequirement;
@@ -93,6 +95,7 @@ contract Liquidatable is PricelessPositionManager {
     // Percent of oraclePrice paid to disputer in the Disputed state (i.e. following a successful dispute)
     // Represented as a multiplier, see above.
     FixedPoint.Unsigned public disputerDisputeRewardPct;
+    FixedPoint.Unsigned public strikePrice;
 
     /****************************************
      *                EVENTS                *
@@ -154,6 +157,7 @@ contract Liquidatable is PricelessPositionManager {
             params.syntheticSymbol,
             params.tokenFactoryAddress,
             params.minSponsorTokens,
+            params.strikePrice,
             params.timerAddress
         )
         nonReentrant()
@@ -168,6 +172,7 @@ contract Liquidatable is PricelessPositionManager {
         liquidationLiveness = params.liquidationLiveness;
         collateralRequirement = params.collateralRequirement;
         disputeBondPct = params.disputeBondPct;
+        strikePrice = params.strikePrice
         sponsorDisputeRewardPct = params.sponsorDisputeRewardPct;
         disputerDisputeRewardPct = params.disputerDisputeRewardPct;
     }
@@ -209,6 +214,8 @@ contract Liquidatable is PricelessPositionManager {
     {
         // Check that this transaction was mined pre-deadline.
         require(getCurrentTime() <= deadline, "Mined after deadline");
+        // Check that proposed asset price is below strike price.
+        require(assetPrice.isLessThanOrEqual(strikePrice), "Above Strike Price");
 
         // Retrieve Position data for sponsor
         PositionData storage positionToLiquidate = _getPositionData(sponsor);
@@ -249,20 +256,21 @@ contract Liquidatable is PricelessPositionManager {
 
         // Scoping to get rid of a stack too deep error.
         {
-            FixedPoint.Unsigned memory ratio = tokensLiquidated.div(positionToLiquidate.tokensOutstanding);
-
             // The actual amount of collateral that gets moved to the liquidation.
-            lockedCollateral = startCollateral.mul(ratio);
-
+            lockedCollateral = (strikePrice.sub(assetPrice)).mul(tokensLiquidated);
+            if (startCollateral.isLessThanOrEqual(lockedCollateral)) {
+                lockedCollateral = startCollateral;
+            }
             // For purposes of disputes, it's actually this liquidatedCollateral value that's used. This value is net of
             // withdrawal requests.
-            liquidatedCollateral = startCollateralNetOfWithdrawal.mul(ratio);
-
+            liquidatedCollateral = lockedCollateral;
+            if (startCollateralNetOfWithdrawal.isLessThanOrEqual(liquidatedCollateral)) {
+                liquidatedCollateral = startCollateralNetOfWithdrawal;
+            }
             // Part of the withdrawal request is also removed. Ideally:
             // liquidatedCollateral + withdrawalAmountToRemove = lockedCollateral.
-            FixedPoint.Unsigned memory withdrawalAmountToRemove = positionToLiquidate.withdrawalRequestAmount.mul(
-                ratio
-            );
+            FixedPoint.Unsigned memory withdrawalAmountToRemove = lockedCollateral
+                              .sub(liquidatedCollateral);
             _reduceSponsorPosition(sponsor, tokensLiquidated, lockedCollateral, withdrawalAmountToRemove);
         }
 
@@ -285,6 +293,7 @@ contract Liquidatable is PricelessPositionManager {
                 rawUnitCollateral: _convertToRawCollateral(FixedPoint.fromUnscaledUint(1)),
                 disputer: address(0),
                 settlementPrice: FixedPoint.fromUnscaledUint(0),
+                proposedAssetPrice: assetPrice
                 finalFee: finalFeeBond
             })
         );
@@ -494,17 +503,8 @@ contract Liquidatable is PricelessPositionManager {
         // Get the returned price from the oracle. If this has not yet resolved will revert.
         liquidation.settlementPrice = _getOraclePrice(liquidation.liquidationTime);
 
-        // Find the value of the tokens in the underlying collateral.
-        FixedPoint.Unsigned memory tokenRedemptionValue = liquidation.tokensOutstanding.mul(
-            liquidation.settlementPrice
-        );
-
-        // The required collateral is the value of the tokens in underlying * required collateral ratio.
-        FixedPoint.Unsigned memory requiredCollateral = tokenRedemptionValue.mul(collateralRequirement);
-
-        // If the position has more than the required collateral it is solvent and the dispute is valid(liquidation is invalid)
-        // Note that this check uses the liquidatedCollateral not the lockedCollateral as this considers withdrawals.
-        bool disputeSucceeded = liquidation.liquidatedCollateral.isGreaterThanOrEqual(requiredCollateral);
+        // If the OraclePrice is above the proposedAssetPrice, dispute succeeds
+        bool disputeSucceeded = liquidation.settlementPrice.isGreaterThan(liquidation.proposedAssetPrice);
         liquidation.state = disputeSucceeded ? Status.DisputeSucceeded : Status.DisputeFailed;
 
         emit DisputeSettled(

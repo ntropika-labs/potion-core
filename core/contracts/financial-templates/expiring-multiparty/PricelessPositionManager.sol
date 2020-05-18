@@ -49,6 +49,8 @@ contract PricelessPositionManager is FeePayer, AdministrateeInterface {
         FixedPoint.Unsigned rawCollateral;
         // Tracks pending transfer position requests. A transfer position request is pending if `transferPositionRequestPassTimestamp != 0`.
         uint256 transferPositionRequestPassTimestamp;
+        // Strike Price of a Position
+        FixedPoint.Unsigned public strikePrice;
     }
 
     // Maps sponsor addresses to their positions. Each sponsor can have only one position.
@@ -74,6 +76,7 @@ contract PricelessPositionManager is FeePayer, AdministrateeInterface {
 
     // Minimum number of tokens in a sponsor's position.
     FixedPoint.Unsigned public minSponsorTokens;
+    FixedPoint.Unsigned public strikePrice;
 
     // The expiry price pulled from the DVM.
     FixedPoint.Unsigned public expiryPrice;
@@ -144,6 +147,7 @@ contract PricelessPositionManager is FeePayer, AdministrateeInterface {
      * @param _syntheticSymbol symbol for the token contract that will be deployed.
      * @param _tokenFactoryAddress deployed UMA token factory to create the synthetic token.
      * @param _minSponsorTokens minimum amount of collateral that must exist at any time in a position.
+     * @param _strikePrice strike price of the put contract.
      * @param _timerAddress Contract that stores the current time in a testing environment.
      * Must be set to 0x0 for production environments that use live time.
      */
@@ -157,6 +161,7 @@ contract PricelessPositionManager is FeePayer, AdministrateeInterface {
         string memory _syntheticSymbol,
         address _tokenFactoryAddress,
         FixedPoint.Unsigned memory _minSponsorTokens,
+        FixedPoint.Unsigned memory _strikePrice,
         address _timerAddress
     ) public FeePayer(_collateralAddress, _finderAddress, _timerAddress) nonReentrant() {
         require(_expirationTimestamp > getCurrentTime(), "Invalid expiration in future");
@@ -167,6 +172,7 @@ contract PricelessPositionManager is FeePayer, AdministrateeInterface {
         TokenFactory tf = TokenFactory(_tokenFactoryAddress);
         tokenCurrency = tf.createToken(_syntheticName, _syntheticSymbol, 18);
         minSponsorTokens = _minSponsorTokens;
+        strikePrice = _strikePrice;
         priceIdentifier = _priceIdentifier;
     }
 
@@ -400,20 +406,29 @@ contract PricelessPositionManager is FeePayer, AdministrateeInterface {
      * @param collateralAmount is the number of collateral tokens to collateralize the position with
      * @param numTokens is the number of tokens to mint from the position.
      */
-    function create(FixedPoint.Unsigned memory collateralAmount, FixedPoint.Unsigned memory numTokens)
+    function create(address poolAddress,
+                    FixedPoint.Unsigned memory optionFee, // This shouldn't be a caller's parameter, but an inherited one
+                    FixedPoint.Unsigned memory collateralAmount,
+                    FixedPoint.Unsigned memory numTokens)
         public
         onlyPreExpiration()
         fees()
         nonReentrant()
     {
+        // Proceed only if the caller pays the option fee to the pool's address
+        require(collateralCurrency.safeTransferFrom(msg.sender, poolAddress, optionFee.rawValue),
+                        "Option fee payment failed");
+
         require(_checkCollateralization(collateralAmount, numTokens), "CR below GCR");
 
-        PositionData storage positionData = positions[msg.sender];
+        PositionData storage positionData = positions[poolAddress];
         require(positionData.withdrawalRequestPassTimestamp == 0, "Pending withdrawal");
         if (positionData.tokensOutstanding.isEqual(0)) {
             require(numTokens.isGreaterThanOrEqual(minSponsorTokens), "Below minimum sponsor position");
-            emit NewSponsor(msg.sender);
+            emit NewSponsor(poolAddress);
         }
+        // We require a match with the original strike price and the proposed position
+        require(collateralAmount.div(numTokens).isEqual(strikePrice), "Strike Price not matched");
 
         // Increase the position and global collateral balance by collateral amount.
         _incrementCollateralBalances(positionData, collateralAmount);
@@ -423,7 +438,7 @@ contract PricelessPositionManager is FeePayer, AdministrateeInterface {
 
         totalTokensOutstanding = totalTokensOutstanding.add(numTokens);
 
-        emit PositionCreated(msg.sender, collateralAmount.rawValue, numTokens.rawValue);
+        emit PositionCreated(poolAddress, collateralAmount.rawValue, numTokens.rawValue);
 
         // Transfer tokens into the contract from caller and mint corresponding synthetic tokens to the caller's address.
         collateralCurrency.safeTransferFrom(msg.sender, address(this), collateralAmount.rawValue);

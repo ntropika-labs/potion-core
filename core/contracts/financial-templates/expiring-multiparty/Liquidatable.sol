@@ -202,6 +202,7 @@ contract Liquidatable is PricelessPositionManager {
         FixedPoint.Unsigned calldata minCollateralPerToken,
         FixedPoint.Unsigned calldata maxCollateralPerToken,
         FixedPoint.Unsigned calldata maxTokensToLiquidate,
+        FixedPoint.Unsigned calldata assetPrice,
         uint256 deadline
     )
         external

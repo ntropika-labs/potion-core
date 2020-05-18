@@ -410,14 +410,13 @@ contract PricelessPositionManager is FeePayer, AdministrateeInterface {
      * @param collateralAmount is the number of collateral tokens to collateralize the position with
      * @param numTokens is the number of tokens to mint from the position.
      */
-    function create(address poolAddress,
-                    FixedPoint.Unsigned memory collateralAmount,
-                    FixedPoint.Unsigned memory numTokens)
+    function create(address poolAddress, FixedPoint.Unsigned memory numTokens)
         public
         onlyPreExpiration()
         fees()
         nonReentrant()
     {
+        FixedPoint.Unsigned memory collateralAmount = numTokens.mul(strikePrice)
         // Proceed only if the caller pays the option fee to the pool's address
         require(collateralCurrency.safeTransferFrom(msg.sender, poolAddress, putFee.rawValue),
                         "Option fee payment failed");
@@ -444,7 +443,7 @@ contract PricelessPositionManager is FeePayer, AdministrateeInterface {
         emit PositionCreated(poolAddress, collateralAmount.rawValue, numTokens.rawValue);
 
         // Transfer tokens into the contract from caller and mint corresponding synthetic tokens to the caller's address.
-        collateralCurrency.safeTransferFrom(msg.sender, address(this), collateralAmount.rawValue);
+        require(collateralCurrency.safeTransferFrom(poolAddress, address(this), collateralAmount.rawValue));
         require(tokenCurrency.mint(msg.sender, numTokens.rawValue), "Minting synthetic tokens failed");
     }
 

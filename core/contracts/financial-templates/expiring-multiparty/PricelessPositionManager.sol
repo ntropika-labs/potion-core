@@ -77,6 +77,7 @@ contract PricelessPositionManager is FeePayer, AdministrateeInterface {
     // Minimum number of tokens in a sponsor's position.
     FixedPoint.Unsigned public minSponsorTokens;
     FixedPoint.Unsigned public strikePrice;
+    FixedPoint.Unsigned public putFee;
 
     // The expiry price pulled from the DVM.
     FixedPoint.Unsigned public expiryPrice;
@@ -148,6 +149,7 @@ contract PricelessPositionManager is FeePayer, AdministrateeInterface {
      * @param _tokenFactoryAddress deployed UMA token factory to create the synthetic token.
      * @param _minSponsorTokens minimum amount of collateral that must exist at any time in a position.
      * @param _strikePrice strike price of the put contract.
+     * @param _putFee put fee as derived by Black-Scholes.
      * @param _timerAddress Contract that stores the current time in a testing environment.
      * Must be set to 0x0 for production environments that use live time.
      */
@@ -162,6 +164,7 @@ contract PricelessPositionManager is FeePayer, AdministrateeInterface {
         address _tokenFactoryAddress,
         FixedPoint.Unsigned memory _minSponsorTokens,
         FixedPoint.Unsigned memory _strikePrice,
+        FixedPoint.Unsigned memory _putFee,
         address _timerAddress
     ) public FeePayer(_collateralAddress, _finderAddress, _timerAddress) nonReentrant() {
         require(_expirationTimestamp > getCurrentTime(), "Invalid expiration in future");
@@ -173,6 +176,7 @@ contract PricelessPositionManager is FeePayer, AdministrateeInterface {
         tokenCurrency = tf.createToken(_syntheticName, _syntheticSymbol, 18);
         minSponsorTokens = _minSponsorTokens;
         strikePrice = _strikePrice;
+        putFee = _putFee;
         priceIdentifier = _priceIdentifier;
     }
 
@@ -407,7 +411,6 @@ contract PricelessPositionManager is FeePayer, AdministrateeInterface {
      * @param numTokens is the number of tokens to mint from the position.
      */
     function create(address poolAddress,
-                    FixedPoint.Unsigned memory optionFee, // This shouldn't be a caller's parameter, but an inherited one
                     FixedPoint.Unsigned memory collateralAmount,
                     FixedPoint.Unsigned memory numTokens)
         public
@@ -416,7 +419,7 @@ contract PricelessPositionManager is FeePayer, AdministrateeInterface {
         nonReentrant()
     {
         // Proceed only if the caller pays the option fee to the pool's address
-        require(collateralCurrency.safeTransferFrom(msg.sender, poolAddress, optionFee.rawValue),
+        require(collateralCurrency.safeTransferFrom(msg.sender, poolAddress, putFee.rawValue),
                         "Option fee payment failed");
 
         require(_checkCollateralization(collateralAmount, numTokens), "CR below GCR");

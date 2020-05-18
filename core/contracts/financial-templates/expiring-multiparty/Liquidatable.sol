@@ -67,6 +67,7 @@ contract Liquidatable is PricelessPositionManager {
         string syntheticSymbol;
         FixedPoint.Unsigned minSponsorTokens;
         FixedPoint.Unsigned strikePrice;
+        FixedPoint.Unsigned putFee;
         // Params specifically for Liquidatable.
         uint256 liquidationLiveness;
         FixedPoint.Unsigned collateralRequirement;
@@ -158,6 +159,7 @@ contract Liquidatable is PricelessPositionManager {
             params.tokenFactoryAddress,
             params.minSponsorTokens,
             params.strikePrice,
+            params.putFee,
             params.timerAddress
         )
         nonReentrant()

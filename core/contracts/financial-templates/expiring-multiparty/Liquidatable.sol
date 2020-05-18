@@ -162,7 +162,7 @@ contract Liquidatable is PricelessPositionManager {
         )
         nonReentrant()
     {
-        require(params.collateralRequirement.isGreaterThan(1), "CR is more than 100%");
+        require(params.collateralRequirement.isGreaterThanOrEqual(1), "CR is below 100%");
         require(
             params.sponsorDisputeRewardPct.add(params.disputerDisputeRewardPct).isLessThan(1),
             "Rewards are more than 100%"

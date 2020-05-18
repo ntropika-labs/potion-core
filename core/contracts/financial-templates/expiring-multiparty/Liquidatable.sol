@@ -126,6 +126,7 @@ contract Liquidatable is PricelessPositionManager {
         bool disputeSucceeded
     );
     event LiquidationWithdrawn(address indexed caller, uint256 withdrawalAmount, Status indexed liquidationStatus);
+    event PoolLiquidationWithdrawn(address indexed caller, uint256 withdrawalAmount, Status indexed liquidationStatus);
 
     /****************************************
      *              MODIFIERS               *
@@ -381,7 +382,8 @@ contract Liquidatable is PricelessPositionManager {
         withdrawable(liquidationId, sponsor)
         fees()
         nonReentrant()
-        returns (FixedPoint.Unsigned memory amountWithdrawn)
+        returns (FixedPoint.Unsigned memory amountWithdrawn,
+                 FixedPoint.Unsigned memory poolAmountWithdrawn)
     {
         LiquidationData storage liquidation = _getLiquidationData(sponsor, liquidationId);
         require(
@@ -411,6 +413,7 @@ contract Liquidatable is PricelessPositionManager {
         // Once a caller has been paid their address deleted from the struct.
         // This prevents them from being paid multiple from times the same liquidation.
         FixedPoint.Unsigned memory withdrawalAmount = FixedPoint.fromUnscaledUint(0);
+        FixedPoint.Unsigned memory poolWithdrawalAmount = FixedPoint.fromUnscaledUint(0);
         if (liquidation.state == Status.DisputeSucceeded) {
             // If the dispute is successful then all three users can withdraw from the contract.
             if (msg.sender == liquidation.disputer) {
@@ -437,6 +440,7 @@ contract Liquidatable is PricelessPositionManager {
                     disputerDisputeReward
                 );
                 withdrawalAmount = withdrawalAmount.add(payToLiquidator);
+                poolWithdrawalAmount = liquidation.proposedAssetPrice.mul(liquidation.tokensLiquidated);
                 delete liquidation.liquidator;
             }
 
@@ -452,23 +456,29 @@ contract Liquidatable is PricelessPositionManager {
         } else if (liquidation.state == Status.DisputeFailed && msg.sender == liquidation.liquidator) {
             // Pay LIQUIDATOR: collateral + dispute bond + returned final fee
             withdrawalAmount = collateral.add(disputeBondAmount).add(finalFee);
+            poolWithdrawalAmount = liquidation.proposedAssetPrice.mul(liquidation.tokensLiquidated)
+                                   .sub(disputeBondAmount);
             delete liquidations[sponsor][liquidationId];
             // If the state is pre-dispute but time has passed liveness then there was no dispute. We represent this
             // state as a dispute failed and the liquidator can withdraw.
         } else if (liquidation.state == Status.PreDispute && msg.sender == liquidation.liquidator) {
             // Pay LIQUIDATOR: collateral + returned final fee
             withdrawalAmount = collateral.add(finalFee);
+            poolWithdrawalAmount = liquidation.proposedAssetPrice.mul(liquidation.tokensLiquidated);
             delete liquidations[sponsor][liquidationId];
         }
         require(withdrawalAmount.isGreaterThan(0), "Invalid withdrawal amount");
 
         // Decrease the total collateral held in liquidatable by the amount withdrawn.
         amountWithdrawn = _removeCollateral(rawLiquidationCollateral, withdrawalAmount);
-
         emit LiquidationWithdrawn(msg.sender, amountWithdrawn.rawValue, liquidation.state);
-
         // Transfer amount withdrawn from this contract to the caller.
         collateralCurrency.safeTransfer(msg.sender, amountWithdrawn.rawValue);
+        if (poolWithdrawalAmount.isGreaterThan(0)){
+          poolAmountWithdrawn = _removeCollateral(rawLiquidationCollateral, poolWithdrawalAmount);
+          emit PoolLiquidationWithdrawn(sponsor, poolAmountWithdrawn.rawValue, liquidation.state);
+          collateralCurrency.safeTransfer(sponsor, poolAmountWithdrawn.rawValue);
+        }
 
         return amountWithdrawn;
     }

@@ -49,8 +49,6 @@ contract PricelessPositionManager is FeePayer, AdministrateeInterface {
         FixedPoint.Unsigned rawCollateral;
         // Tracks pending transfer position requests. A transfer position request is pending if `transferPositionRequestPassTimestamp != 0`.
         uint256 transferPositionRequestPassTimestamp;
-        // Strike Price of a Position
-        FixedPoint.Unsigned public strikePrice;
     }
 
     // Maps sponsor addresses to their positions. Each sponsor can have only one position.
@@ -77,7 +75,6 @@ contract PricelessPositionManager is FeePayer, AdministrateeInterface {
     // Minimum number of tokens in a sponsor's position.
     FixedPoint.Unsigned public minSponsorTokens;
     FixedPoint.Unsigned public strikePrice;
-    FixedPoint.Unsigned public putFee;
 
     // The expiry price pulled from the DVM.
     FixedPoint.Unsigned public expiryPrice;
@@ -149,7 +146,6 @@ contract PricelessPositionManager is FeePayer, AdministrateeInterface {
      * @param _tokenFactoryAddress deployed UMA token factory to create the synthetic token.
      * @param _minSponsorTokens minimum amount of collateral that must exist at any time in a position.
      * @param _strikePrice strike price of the put contract.
-     * @param _putFee put fee as derived by Black-Scholes.
      * @param _timerAddress Contract that stores the current time in a testing environment.
      * Must be set to 0x0 for production environments that use live time.
      */
@@ -164,7 +160,6 @@ contract PricelessPositionManager is FeePayer, AdministrateeInterface {
         address _tokenFactoryAddress,
         FixedPoint.Unsigned memory _minSponsorTokens,
         FixedPoint.Unsigned memory _strikePrice,
-        FixedPoint.Unsigned memory _putFee,
         address _timerAddress
     ) public FeePayer(_collateralAddress, _finderAddress, _timerAddress) nonReentrant() {
         require(_expirationTimestamp > getCurrentTime(), "Invalid expiration in future");
@@ -176,7 +171,6 @@ contract PricelessPositionManager is FeePayer, AdministrateeInterface {
         tokenCurrency = tf.createToken(_syntheticName, _syntheticSymbol, 18);
         minSponsorTokens = _minSponsorTokens;
         strikePrice = _strikePrice;
-        putFee = _putFee;
         priceIdentifier = _priceIdentifier;
     }
 
@@ -407,19 +401,17 @@ contract PricelessPositionManager is FeePayer, AdministrateeInterface {
      * @dev Reverts if minting these tokens would put the position's collateralization ratio below the
      * global collateralization ratio. This contract must be approved to spend at least `collateralAmount` of
      * `collateralCurrency`.
-     * @param collateralAmount is the number of collateral tokens to collateralize the position with
+     * @param poolAddress is the address of the liquidity pool.
      * @param numTokens is the number of tokens to mint from the position.
      */
-    function create(address poolAddress, FixedPoint.Unsigned memory numTokens)
-        public
-        onlyPreExpiration()
-        fees()
-        nonReentrant()
-    {
-        FixedPoint.Unsigned memory collateralAmount = numTokens.mul(strikePrice)
+    function create(
+        address poolAddress,
+        FixedPoint.Unsigned memory numTokens,
+        FixedPoint.Unsigned memory putFee
+    ) public onlyPreExpiration() fees() nonReentrant() {
+        FixedPoint.Unsigned memory collateralAmount = numTokens.mul(strikePrice);
         // Proceed only if the caller pays the option fee to the pool's address
-        require(collateralCurrency.safeTransferFrom(msg.sender, poolAddress, putFee.rawValue),
-                        "Option fee payment failed");
+        collateralCurrency.safeTransferFrom(msg.sender, poolAddress, putFee.rawValue);
 
         require(_checkCollateralization(collateralAmount, numTokens), "CR below GCR");
 
@@ -443,7 +435,7 @@ contract PricelessPositionManager is FeePayer, AdministrateeInterface {
         emit PositionCreated(poolAddress, collateralAmount.rawValue, numTokens.rawValue);
 
         // Transfer tokens into the contract from caller and mint corresponding synthetic tokens to the caller's address.
-        require(collateralCurrency.safeTransferFrom(poolAddress, address(this), collateralAmount.rawValue));
+        collateralCurrency.safeTransferFrom(poolAddress, address(this), collateralAmount.rawValue);
         require(tokenCurrency.mint(msg.sender, numTokens.rawValue), "Minting synthetic tokens failed");
     }
 

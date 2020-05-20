@@ -46,6 +46,14 @@ contract ExpiringMultiPartyCreator is ContractCreator, Testable, Lockable {
     AddressWhitelist public collateralTokenWhitelist;
     // - Address of TokenFactory to pass into newly constructed ExpiringMultiParty contracts
     address public tokenFactoryAddress;
+
+    address[] public contractsAddress;
+    struct ContractData {
+        uint256 expiryTime;
+        FixedPoint.Unsigned strike;
+    }
+    mapping(address => ContractData) public contractDataMap;
+
     // - Discretize expirations such that they must expire on the first of each month.
     mapping(uint256 => bool) public validExpirationTimestamps;
     // - Time for pending withdrawal to be disputed: 120 minutes. Lower liveness increases sponsor usability.
@@ -102,6 +110,11 @@ contract ExpiringMultiPartyCreator is ContractCreator, Testable, Lockable {
         }
     }
 
+    // Return address from all contracts created with this factory
+    function getContractAddressList() public view returns (address[] memory list) {
+        return contractsAddress;
+    }
+
     /**
      * @notice Creates an instance of expiring multi party and registers it within the registry.
      * @param params is a `ConstructorParams` object from ExpiringMultiParty.
@@ -113,6 +126,9 @@ contract ExpiringMultiPartyCreator is ContractCreator, Testable, Lockable {
         _registerContract(new address[](0), address(derivative));
 
         emit CreatedExpiringMultiParty(address(derivative), msg.sender);
+
+        // Keep track of all created contract addresses
+        contractsAddress.push(address(derivative));
 
         return address(derivative);
     }

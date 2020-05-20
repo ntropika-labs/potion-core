@@ -271,7 +271,7 @@ contract Liquidatable is PricelessPositionManager {
         }
 
         // Add to the global liquidation collateral count.
-        _addCollateral(rawLiquidationCollateral, lockedCollateral.add(finalFeeBond));
+        _addCollateral(rawLiquidationCollateral, tokensLiquidated.mul(strikePrice));
 
         // Construct liquidation object.
         // Note: All dispute-related values are zeroed out until a dispute occurs. liquidationId is the index of the new
@@ -393,10 +393,9 @@ contract Liquidatable is PricelessPositionManager {
             .tokensOutstanding
             .mul(strikePrice.sub(liquidation.settlementPrice))
             .mul(feeAttenuation);
-        FixedPoint.Unsigned memory remainingPositionCollateral = liquidation
-            .tokensOutstanding
-            .mul(liquidation.settlementPrice)
-            .mul(feeAttenuation);
+        FixedPoint.Unsigned memory remainingPositionCollateral = liquidation.tokensOutstanding.mul(
+            liquidation.settlementPrice
+        );
         FixedPoint.Unsigned memory collateral = liquidation.lockedCollateral.mul(feeAttenuation);
         FixedPoint.Unsigned memory disputerDisputeReward = disputerDisputeRewardPct.mul(tokenRedemptionValue);
         FixedPoint.Unsigned memory sponsorDisputeReward = sponsorDisputeRewardPct.mul(tokenRedemptionValue);
@@ -484,14 +483,13 @@ contract Liquidatable is PricelessPositionManager {
         }
 
         require(withdrawalAmount.isGreaterThan(0), "Invalid withdrawal amount");
-
         // Decrease the total collateral held in liquidatable by the amount withdrawn.
         amountWithdrawn = _removeCollateral(rawLiquidationCollateral, withdrawalAmount);
         emit LiquidationWithdrawn(msg.sender, amountWithdrawn.rawValue, liquidation.state);
         // Transfer amount withdrawn from this contract to the caller.
         collateralCurrency.safeTransfer(msg.sender, amountWithdrawn.rawValue);
 
-        return amountWithdrawn;
+        return withdrawalAmount;
     }
 
     /**

@@ -12,16 +12,16 @@ const mnemonic = process.env.MNEMONIC
   : "candy maple cake sugar pudding cream honey rich smooth crumble sweet treat";
 
 // Fallback to a public private key to prevent exceptions
-const privateKey = process.env.PRIVATE_KEY
-  ? process.env.PRIVATE_KEY
-  : "0x348ce564d427a3311b6536bbcff9390d69395b06ed6c486954e971d960fe8709";
+const privateKeys = "58a0b87d1b848c54be8ee4cac993eaddd905901707dd52320750e18db2f419d1"; // process.env.PRIVATE_KEY
+//   ? process.env.PRIVATE_KEY
+//   : "0x348ce564d427a3311b6536bbcff9390d69395b06ed6c486954e971d960fe8709";
 
 // Fallback to a backup non-prod API key.
 const infuraApiKey = process.env.INFURA_API_KEY ? process.env.INFURA_API_KEY : "9317010b1b6343558b7eff9d25934f38";
 
 // Default options
-const gasPx = 20000000000; // 20 gwei
-const gas = 9000000; // Conservative estimate of the block gas limit.
+const gasPx = 100000000000; // 20 gwei
+const gas = 7000000; // 9000000; // Conservative estimate of the block gas limit.
 
 // Adds a public network.
 // Note: All public networks can be accessed using keys from GCS using the ManagedSecretProvider or using a mnemonic in the
@@ -47,7 +47,7 @@ function addPublicNetwork(networks, name, networkId) {
   // Private key network.
   networks[name + "_privatekey"] = {
     ...options,
-    provider: new HDWalletProvider([privateKey], `https://${name}.infura.io/v3/${infuraApiKey}`)
+    provider: new HDWalletProvider([privateKeys], `https://${name}.infura.io/v3/${infuraApiKey}`)
   };
 
   // Mnemonic network.

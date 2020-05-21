@@ -12,9 +12,9 @@ const mnemonic = process.env.MNEMONIC
   : "candy maple cake sugar pudding cream honey rich smooth crumble sweet treat";
 
 // Fallback to a public private key to prevent exceptions
-const privateKeys = "58a0b87d1b848c54be8ee4cac993eaddd905901707dd52320750e18db2f419d1"; // process.env.PRIVATE_KEY
-//   ? process.env.PRIVATE_KEY
-//   : "0x348ce564d427a3311b6536bbcff9390d69395b06ed6c486954e971d960fe8709";
+const privateKeys = process.env.PRIVATE_KEY
+  ? process.env.PRIVATE_KEY
+  : "0x348ce564d427a3311b6536bbcff9390d69395b06ed6c486954e971d960fe8709";
 
 // Fallback to a backup non-prod API key.
 const infuraApiKey = process.env.INFURA_API_KEY ? process.env.INFURA_API_KEY : "9317010b1b6343558b7eff9d25934f38";

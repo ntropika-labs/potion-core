@@ -67,9 +67,7 @@ contract("ExpiringMultiPartyCreator", function(accounts) {
       timerAddress: Timer.address
     };
     identifierWhitelist = await IdentifierWhitelist.deployed();
-    await identifierWhitelist.addSupportedIdentifier(constructorParams.priceFeedIdentifier, {
-      from: contractCreator
-    });
+    await identifierWhitelist.addSupportedIdentifier(constructorParams.priceFeedIdentifier, { from: contractCreator });
     tx1 = await expiringMultiPartyCreator.createExpiringMultiParty(constructorParams, { from: contractCreator });
     const e1 = await ExpiringMultiParty.at(tx1.logs[0].args.expiringMultiPartyAddress);
 
@@ -195,7 +193,6 @@ contract("ExpiringMultiPartyCreator", function(accounts) {
       contractCreator,
       { rawValue: toWei("100") },
       { rawValue: toWei("50") },
-      unreachableDeadline,
       { from: putBuyer }
     );
     console.log(

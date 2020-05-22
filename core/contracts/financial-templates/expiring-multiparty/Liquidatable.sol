@@ -41,7 +41,7 @@ contract Liquidatable is PricelessPositionManager {
         FixedPoint.Unsigned lockedCollateral; // Collateral locked by contract and released upon expiry or post-dispute
         // Amount of collateral being liquidated, which could be different from
         // lockedCollateral if there were pending withdrawals at the time of liquidation
-        FixedPoint.Unsigned liquidatedCollateral;
+        // FixedPoint.Unsigned liquidatedCollateral;
         // Unit value (starts at 1) that is used to track the fees per unit of collateral over the course of the liquidation.
         FixedPoint.Unsigned rawUnitCollateral;
         // Following variable set upon initiation of a dispute:
@@ -104,8 +104,8 @@ contract Liquidatable is PricelessPositionManager {
         address indexed liquidator,
         uint256 indexed liquidationId,
         uint256 tokensOutstanding,
-        uint256 lockedCollateral,
-        uint256 liquidatedCollateral
+        uint256 lockedCollateral
+        // uint256 liquidatedCollateral
     );
     event LiquidationDisputed(
         address indexed sponsor,
@@ -186,18 +186,14 @@ contract Liquidatable is PricelessPositionManager {
      * approved to spend at least `tokensLiquidated` of `tokenCurrency` and at least `finalFeeBond` of `collateralCurrency`.
      * @param sponsor address of the sponsor to liquidate.
      * @param maxTokensToLiquidate max number of tokens to liquidate.
-     * @param deadline abort the liquidation if the transaction is mined after this timestamp.
      * @return liquidationId ID of the newly created liquidation.
      * @return tokensLiquidated amount of synthetic tokens removed and liquidated from the `sponsor`'s position.
      * @return finalFeeBond amount of collateral to be posted by liquidator and returned if not disputed successfully.
      */
     function createLiquidation(
         address sponsor,
-        // FixedPoint.Unsigned calldata minCollateralPerToken,
-        // FixedPoint.Unsigned calldata maxCollateralPerToken,
         FixedPoint.Unsigned calldata maxTokensToLiquidate,
-        FixedPoint.Unsigned calldata assetPrice,
-        uint256 deadline
+        FixedPoint.Unsigned calldata assetPrice
     )
         external
         fees()
@@ -209,9 +205,6 @@ contract Liquidatable is PricelessPositionManager {
             FixedPoint.Unsigned memory finalFeeBond
         )
     {
-        // Check that this transaction was mined pre-deadline.
-        require(getCurrentTime() <= deadline, "Mined after deadline");
-        // Check that proposed asset price is below strike price.
         require(assetPrice.isLessThanOrEqual(strikePrice), "Above Strike Price");
 
         // Retrieve Position data for sponsor
@@ -219,55 +212,18 @@ contract Liquidatable is PricelessPositionManager {
 
         tokensLiquidated = FixedPoint.min(maxTokensToLiquidate, positionToLiquidate.tokensOutstanding);
 
-        // Starting values for the Position being liquidated. If withdrawal request amount is > position's collateral,
-        // then set this to 0, otherwise set it to (startCollateral - withdrawal request amount).
-        FixedPoint.Unsigned memory startCollateral = _getFeeAdjustedCollateral(positionToLiquidate.rawCollateral);
-        FixedPoint.Unsigned memory startCollateralNetOfWithdrawal = FixedPoint.fromUnscaledUint(0);
-        if (positionToLiquidate.withdrawalRequestAmount.isLessThanOrEqual(startCollateral)) {
-            startCollateralNetOfWithdrawal = startCollateral.sub(positionToLiquidate.withdrawalRequestAmount);
-        }
-
-        // Scoping to get rid of a stack too deep error.
-        // {
-        //     FixedPoint.Unsigned memory startTokens = positionToLiquidate.tokensOutstanding;
-        //
-        //     // The Position's collateralization ratio must be between [minCollateralPerToken, maxCollateralPerToken].
-        //     // maxCollateralPerToken >= startCollateralNetOfWithdrawal / startTokens.
-        //     require(
-        //         maxCollateralPerToken.mul(startTokens).isGreaterThanOrEqual(startCollateralNetOfWithdrawal),
-        //         "CR is more than max liq. price"
-        //     );
-        //     // minCollateralPerToken >= startCollateralNetOfWithdrawal / startTokens.
-        //     require(
-        //         minCollateralPerToken.mul(startTokens).isLessThanOrEqual(startCollateralNetOfWithdrawal),
-        //         "CR is less than min liq. price"
-        //     );
-        // }
-
         // Compute final fee at time of liquidation.
         finalFeeBond = _computeFinalFees();
 
         // These will be populated within the scope below.
         FixedPoint.Unsigned memory lockedCollateral;
-        FixedPoint.Unsigned memory liquidatedCollateral;
+        // FixedPoint.Unsigned memory liquidatedCollateral;
 
         // Scoping to get rid of a stack too deep error.
         {
             // The actual amount of collateral that gets moved to the liquidation.
             lockedCollateral = tokensLiquidated.mul(strikePrice.sub(assetPrice));
-            if (startCollateral.isLessThanOrEqual(lockedCollateral)) {
-                lockedCollateral = startCollateral;
-            }
-            // For purposes of disputes, it's actually this liquidatedCollateral value that's used. This value is net of
-            // withdrawal requests.
-            liquidatedCollateral = lockedCollateral;
-            if (startCollateralNetOfWithdrawal.isLessThanOrEqual(liquidatedCollateral)) {
-                liquidatedCollateral = startCollateralNetOfWithdrawal;
-            }
-            // Part of the withdrawal request is also removed. Ideally:
-            // liquidatedCollateral + withdrawalAmountToRemove = lockedCollateral.
-            FixedPoint.Unsigned memory withdrawalAmountToRemove = lockedCollateral.sub(liquidatedCollateral);
-            _reduceSponsorPosition(sponsor, tokensLiquidated, lockedCollateral, withdrawalAmountToRemove);
+            _reduceSponsorPosition(sponsor, tokensLiquidated, lockedCollateral);
         }
 
         // Add to the global liquidation collateral count.
@@ -285,7 +241,6 @@ contract Liquidatable is PricelessPositionManager {
                 liquidationTime: getCurrentTime(),
                 tokensOutstanding: tokensLiquidated,
                 lockedCollateral: lockedCollateral,
-                liquidatedCollateral: liquidatedCollateral,
                 rawUnitCollateral: _convertToRawCollateral(FixedPoint.fromUnscaledUint(1)),
                 disputer: address(0),
                 settlementPrice: assetPrice,
@@ -298,8 +253,7 @@ contract Liquidatable is PricelessPositionManager {
             msg.sender,
             liquidationId,
             tokensLiquidated.rawValue,
-            lockedCollateral.rawValue,
-            liquidatedCollateral.rawValue
+            lockedCollateral.rawValue
         );
 
         // Destroy tokens

@@ -5,9 +5,10 @@ module.exports = async function(deployer, network, accounts) {
   const keys = getKeysForNetwork(network, accounts);
   const controllableTiming = enableControllableTiming(network);
 
-  if (controllableTiming) {
-    await deploy(deployer, network, Timer, { from: keys.deployer });
-  } else {
-    return;
-  }
+  await deploy(deployer, network, Timer, { from: keys.deployer });
+  // if (controllableTiming) {
+  //   await deploy(deployer, network, Timer, { from: keys.deployer });
+  // } else {
+  //   return;
+  // }
 };

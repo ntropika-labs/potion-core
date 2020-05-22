@@ -644,9 +644,9 @@ contract PricelessPositionManager is FeePayer, AdministrateeInterface {
     function _reduceSponsorPosition(
         address sponsor,
         FixedPoint.Unsigned memory tokensToRemove,
-        FixedPoint.Unsigned memory collateralToRemove,
-        FixedPoint.Unsigned memory withdrawalAmountToRemove
-    ) internal {
+        FixedPoint.Unsigned memory collateralToRemove
+    ) internal // FixedPoint.Unsigned memory withdrawalAmountToRemove
+    {
         PositionData storage positionData = _getPositionData(sponsor);
 
         // If the entire position is being removed, delete it instead.
@@ -667,7 +667,7 @@ contract PricelessPositionManager is FeePayer, AdministrateeInterface {
         positionData.tokensOutstanding = newTokenCount;
 
         // Decrement the position's withdrawal amount.
-        positionData.withdrawalRequestAmount = positionData.withdrawalRequestAmount.sub(withdrawalAmountToRemove);
+        // positionData.withdrawalRequestAmount = positionData.withdrawalRequestAmount.sub(withdrawalAmountToRemove);
 
         // Decrement the total outstanding tokens in the overall contract.
         totalTokensOutstanding = totalTokensOutstanding.sub(tokensToRemove);

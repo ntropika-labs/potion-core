@@ -69,11 +69,10 @@ contract PricelessPositionManager is FeePayer, AdministrateeInterface {
     bytes32 public priceIdentifier;
     // Time that this contract expires. Should not change post-construction unless an emergency shutdown occurs.
     uint256 public expirationTimestamp;
+    uint256 public deploymentTimestamp;
     // Time that has to elapse for a withdrawal request to be considered passed, if no liquidations occur.
     uint256 public withdrawalLiveness;
 
-    // Minimum number of tokens in a sponsor's position.
-    FixedPoint.Unsigned public minSponsorTokens;
     FixedPoint.Unsigned public strikePrice;
 
     // The expiry price pulled from the DVM.
@@ -144,13 +143,13 @@ contract PricelessPositionManager is FeePayer, AdministrateeInterface {
      * @param _syntheticName name for the token contract that will be deployed.
      * @param _syntheticSymbol symbol for the token contract that will be deployed.
      * @param _tokenFactoryAddress deployed UMA token factory to create the synthetic token.
-     * @param _minSponsorTokens minimum amount of collateral that must exist at any time in a position.
      * @param _strikePrice strike price of the put contract.
      * @param _timerAddress Contract that stores the current time in a testing environment.
      * Must be set to 0x0 for production environments that use live time.
      */
     constructor(
         uint256 _expirationTimestamp,
+        uint256 _deploymentTimestamp,
         uint256 _withdrawalLiveness,
         address _collateralAddress,
         address _finderAddress,
@@ -158,7 +157,6 @@ contract PricelessPositionManager is FeePayer, AdministrateeInterface {
         string memory _syntheticName,
         string memory _syntheticSymbol,
         address _tokenFactoryAddress,
-        FixedPoint.Unsigned memory _minSponsorTokens,
         FixedPoint.Unsigned memory _strikePrice,
         address _timerAddress
     ) public FeePayer(_collateralAddress, _finderAddress, _timerAddress) nonReentrant() {
@@ -166,10 +164,10 @@ contract PricelessPositionManager is FeePayer, AdministrateeInterface {
         require(_getIdentifierWhitelist().isIdentifierSupported(_priceIdentifier), "Unsupported price identifier");
 
         expirationTimestamp = _expirationTimestamp;
+        deploymentTimestamp = _deploymentTimestamp;
         withdrawalLiveness = _withdrawalLiveness;
         TokenFactory tf = TokenFactory(_tokenFactoryAddress);
         tokenCurrency = tf.createToken(_syntheticName, _syntheticSymbol, 18);
-        minSponsorTokens = _minSponsorTokens;
         strikePrice = _strikePrice;
         priceIdentifier = _priceIdentifier;
     }
@@ -406,37 +404,30 @@ contract PricelessPositionManager is FeePayer, AdministrateeInterface {
      */
     function create(
         address poolAddress,
+        address buyerAddress,
+        address empCreator,
         FixedPoint.Unsigned memory numTokens,
-        FixedPoint.Unsigned memory putFee
+        FixedPoint.Unsigned memory premiumDeposit,
+        FixedPoint.Unsigned memory collateralAmount
     ) public onlyPreExpiration() fees() nonReentrant() {
-        FixedPoint.Unsigned memory collateralAmount = numTokens.mul(strikePrice);
-        // Proceed only if the caller pays the option fee to the pool's address
-        collateralCurrency.safeTransferFrom(msg.sender, poolAddress, putFee.rawValue);
-
-        require(_checkCollateralization(collateralAmount, numTokens), "CR below GCR");
-
         PositionData storage positionData = positions[poolAddress];
         require(positionData.withdrawalRequestPassTimestamp == 0, "Pending withdrawal");
         if (positionData.tokensOutstanding.isEqual(0)) {
-            require(numTokens.isGreaterThanOrEqual(minSponsorTokens), "Below minimum sponsor position");
             emit NewSponsor(poolAddress);
         }
-        // We require a match with the original strike price and the proposed position
-        require(collateralAmount.div(numTokens).isEqual(strikePrice), "Strike Price not matched");
 
         // Increase the position and global collateral balance by collateral amount.
         _incrementCollateralBalances(positionData, collateralAmount);
 
         // Add the number of tokens created to the position's outstanding tokens.
         positionData.tokensOutstanding = positionData.tokensOutstanding.add(numTokens);
-
         totalTokensOutstanding = totalTokensOutstanding.add(numTokens);
 
         emit PositionCreated(poolAddress, collateralAmount.rawValue, numTokens.rawValue);
 
         // Transfer tokens into the contract from caller and mint corresponding synthetic tokens to the caller's address.
-        collateralCurrency.safeTransferFrom(poolAddress, address(this), collateralAmount.rawValue);
-        require(tokenCurrency.mint(msg.sender, numTokens.rawValue), "Minting synthetic tokens failed");
+        collateralCurrency.safeTransferFrom(empCreator, address(this), collateralAmount.add(premiumDeposit).rawValue);
+        require(tokenCurrency.mint(buyerAddress, numTokens.rawValue), "Minting synthetic tokens failed");
     }
 
     /**
@@ -472,7 +463,6 @@ contract PricelessPositionManager is FeePayer, AdministrateeInterface {
 
             // Decrease the sponsors position tokens size. Ensure it is above the min sponsor size.
             FixedPoint.Unsigned memory newTokenCount = positionData.tokensOutstanding.sub(numTokens);
-            require(newTokenCount.isGreaterThanOrEqual(minSponsorTokens), "Below minimum sponsor position");
             positionData.tokensOutstanding = newTokenCount;
 
             // Update the totalTokensOutstanding after redemption.
@@ -622,6 +612,10 @@ contract PricelessPositionManager is FeePayer, AdministrateeInterface {
         return _getFeeAdjustedCollateral(positions[sponsor].rawCollateral);
     }
 
+    function getDeploymentTimestamp() external view nonReentrantView() returns (uint256 deployTime) {
+        return deploymentTimestamp;
+    }
+
     /**
      * @notice Accessor method for the total collateral stored within the PricelessPositionManager.
      * @return totalCollateral amount of all collateral within the Expiring Multi Party Contract.
@@ -644,9 +638,8 @@ contract PricelessPositionManager is FeePayer, AdministrateeInterface {
     function _reduceSponsorPosition(
         address sponsor,
         FixedPoint.Unsigned memory tokensToRemove,
-        FixedPoint.Unsigned memory collateralToRemove
-    ) internal // FixedPoint.Unsigned memory withdrawalAmountToRemove
-    {
+        FixedPoint.Unsigned memory collateralToRemove // FixedPoint.Unsigned memory withdrawalAmountToRemove
+    ) internal {
         PositionData storage positionData = _getPositionData(sponsor);
 
         // If the entire position is being removed, delete it instead.
@@ -663,7 +656,6 @@ contract PricelessPositionManager is FeePayer, AdministrateeInterface {
 
         // Ensure that the sponsor will meet the min position size after the reduction.
         FixedPoint.Unsigned memory newTokenCount = positionData.tokensOutstanding.sub(tokensToRemove);
-        require(newTokenCount.isGreaterThanOrEqual(minSponsorTokens), "Below minimum sponsor position");
         positionData.tokensOutstanding = newTokenCount;
 
         // Decrement the position's withdrawal amount.

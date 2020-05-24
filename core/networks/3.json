@@ -1,0 +1,262 @@
+[
+  {
+    "contractName": "Migrations",
+    "address": "0x1217d39224a667854D83E2CBF33C7FD7DF519d09"
+  },
+  {
+    "contractName": "Finder",
+    "address": "0x501529928b3bDcDf6EEB17B5C05410323Dcfba39"
+  },
+  {
+    "contractName": "Timer",
+    "address": "0x5eC861ea8CB415B6a05299546cCBE3Ca4de3dbCF"
+  },
+  {
+    "contractName": "VotingToken",
+    "address": "0xFAbad6AF5eA7f5d8310dA045768971Bd38D31AC7"
+  },
+  {
+    "contractName": "IdentifierWhitelist",
+    "address": "0x8F3a51D96350cD0b20935bDDebA921dEBFb729b3"
+  },
+  {
+    "contractName": "Voting",
+    "address": "0xD03f11623077ff1f7eE6F3bE29b5A35f17f801a4"
+  },
+  {
+    "contractName": "Registry",
+    "address": "0x4CFa29aa113C5E2a33D1934c61642881a5bD64B2"
+  },
+  {
+    "contractName": "FinancialContractsAdmin",
+    "address": "0x93DbfA2551292F635a27775fa31b948B33bdFb5f"
+  },
+  {
+    "contractName": "Store",
+    "address": "0x519FF12E5d16481ea7380002Da53580E012f7c04"
+  },
+  {
+    "contractName": "Governor",
+    "address": "0xD0364449C478822e9F07b3d63a785593ee43e258"
+  },
+  {
+    "contractName": "DesignatedVotingFactory",
+    "address": "0xF92BdB74c71900BA08493Df9E338f73CD1C2bE32"
+  },
+  {
+    "contractName": "TestnetERC20",
+    "address": "0xB5E5D0F8C0cbA267CD3D7035d6AdC8eBA7Df7Cdd"
+  },
+  {
+    "contractName": "TokenFactory",
+    "address": "0x427016bd586DDa6F229108d72db3BCc8c7dbF77E"
+  },
+  {
+    "contractName": "AddressWhitelist",
+    "address": "0x7AC0a2d4778c15557DD5A5060aBdB8cf112e9014"
+  },
+  {
+    "contractName": "ExpiringMultiPartyLib",
+    "address": "0x8A065d9b95E7DE743AC5523BbD2E06735f42C8D6"
+  },
+  {
+    "contractName": "ExpiringMultiPartyCreator",
+    "address": "0x319D505eF16FCc531e9872C729fD170B8C1C8cf0"
+  },
+  {
+    "contractName": "WETH9",
+    "address": "0xc778417E063141139Fce010982780140Aa0cD5Ab"
+  },
+  {
+    "contractName": "Migrations",
+    "address": "0x3A315A95D6E370B64b885A29F53FA07BFfa2c5Fc"
+  },
+  {
+    "contractName": "Finder",
+    "address": "0x85B06fe3016309EA47E54d01DbeF42c169BE0Eee"
+  },
+  {
+    "contractName": "Timer",
+    "address": "0xc13a5e54Bee5b6DE513b142EAC96C68Fb6a98C18"
+  },
+  {
+    "contractName": "VotingToken",
+    "address": "0x648642A5943d4DbA0a2cA3ca4fE3d27C1fA2ED91"
+  },
+  {
+    "contractName": "IdentifierWhitelist",
+    "address": "0x3bceb42320dB910d1538e6f7D551C054eF6bfa8b"
+  },
+  {
+    "contractName": "Voting",
+    "address": "0x9832F04Ab3247af2932df7E7E46C956A47bD340E"
+  },
+  {
+    "contractName": "Registry",
+    "address": "0xFaD3F0D7291940647AeEB7Aee828D0a9Be4f4d60"
+  },
+  {
+    "contractName": "FinancialContractsAdmin",
+    "address": "0xaB115f05D7632b3a5137a2bBc3A64cDAA7605a76"
+  },
+  {
+    "contractName": "Store",
+    "address": "0x8bEA1441C8478BE0a235aE2d2e6163A756c603F1"
+  },
+  {
+    "contractName": "Governor",
+    "address": "0x1e9bec6A731625292493fDe2815e666DcEb7e842"
+  },
+  {
+    "contractName": "DesignatedVotingFactory",
+    "address": "0xbD65CDD80B9C1C908381a48a47e55Ffb4FC7908e"
+  },
+  {
+    "contractName": "TestnetERC20",
+    "address": "0xB5E5D0F8C0cbA267CD3D7035d6AdC8eBA7Df7Cdd"
+  },
+  {
+    "contractName": "TokenFactory",
+    "address": "0x2c1a7cfC3Fd77069feaaf90CbFF73feB86148222"
+  },
+  {
+    "contractName": "AddressWhitelist",
+    "address": "0x54A8539A743121dD211DFb1BEb27E25E2E55ce17"
+  },
+  {
+    "contractName": "ExpiringMultiPartyLib",
+    "address": "0x72E7eD5d7df365CaC76FE67567b14d5E0f066177"
+  },
+  {
+    "contractName": "ExpiringMultiPartyCreator",
+    "address": "0x7bfb94bfc4271Ec166802D7EB1a18D1bf781665E"
+  },
+  {
+    "contractName": "WETH9",
+    "address": "0xc778417E063141139Fce010982780140Aa0cD5Ab"
+  },
+  {
+    "contractName": "AddressWhitelist",
+    "address": "0x67B35F8Db6cd54EAB23831f9605e389A720A96cD"
+  },
+  {
+    "contractName": "ExpiringMultiPartyLib",
+    "address": "0x174D63D753fD291E1a07a23A30f3B29bdf186569"
+  },
+  {
+    "contractName": "AddressWhitelist",
+    "address": "0x7451Ed06c4B26195d2D5c41B2ba4558127195bD0"
+  },
+  {
+    "contractName": "ExpiringMultiPartyLib",
+    "address": "0x9Ee553C8CC6dD2F4985E09FaA177c7DAEb7A3DDB"
+  },
+  {
+    "contractName": "ExpiringMultiPartyCreator",
+    "address": "0xc0443088Fb90260d5f51f855D310A0019f3dd721"
+  },
+  {
+    "contractName": "AddressWhitelist",
+    "address": "0xf26863a5D302B7D4Ee07b0Af09278baE4E8a1203"
+  },
+  {
+    "contractName": "ExpiringMultiPartyLib",
+    "address": "0xbe1235829FfD5C72ABc8191EE20C09679238d375"
+  },
+  {
+    "contractName": "ExpiringMultiPartyCreator",
+    "address": "0xb67e15F28837ba8cE5Ba5730F578856E6D64A71C"
+  },
+  {
+    "contractName": "AddressWhitelist",
+    "address": "0xD436abB99b1d2DFd54482Be2330193031f6d50Cf"
+  },
+  {
+    "contractName": "ExpiringMultiPartyLib",
+    "address": "0x3dC89ca1B9e4DFEF0e12b11308a8d6e820C5d555"
+  },
+  {
+    "contractName": "ExpiringMultiPartyCreator",
+    "address": "0x3c1D268E0Dcba44225819237F4EBdab37A906675"
+  },
+  {
+    "contractName": "AddressWhitelist",
+    "address": "0x47bb7D4A10B76Bf07403A1B87E0FCd722920F1FA"
+  },
+  {
+    "contractName": "ExpiringMultiPartyLib",
+    "address": "0x6E6A3FdCcD406fC2CD2dB153Fe07Eca089F40f5c"
+  },
+  {
+    "contractName": "AddressWhitelist",
+    "address": "0x4A4bA38041292d1c2119647B86334af07a0FA5ed"
+  },
+  {
+    "contractName": "ExpiringMultiPartyLib",
+    "address": "0x40958B00Bdbc5cd4b5ba53020A2Da243f66b5a69"
+  },
+  {
+    "contractName": "ExpiringMultiPartyCreator",
+    "address": "0xBA51A9b33E763BAcBb0A6A5B4e97530c108a894A"
+  },
+  {
+    "contractName": "AddressWhitelist",
+    "address": "0x3c17a84B8F9961f7bC7b9CA38742Ea933f83Cf92"
+  },
+  {
+    "contractName": "ExpiringMultiPartyLib",
+    "address": "0x691140481A5fB4c023A15d9Bca0Aa0dFcA9fb21D"
+  },
+  {
+    "contractName": "AddressWhitelist",
+    "address": "0x3b82238525Bd1722122a425dB7E7CE2739401d97"
+  },
+  {
+    "contractName": "ExpiringMultiPartyLib",
+    "address": "0xdDc53C10310CD70508fb52BD8DDD05c8ad9F6D02"
+  },
+  {
+    "contractName": "ExpiringMultiPartyCreator",
+    "address": "0xF4a302d619dBF08D5a21cED71A79926a12A8c531"
+  },
+  {
+    "contractName": "AddressWhitelist",
+    "address": "0x128cf99eaa4909C3A8f25492DB0e09813f16b637"
+  },
+  {
+    "contractName": "AddressWhitelist",
+    "address": "0xdDd38060E36be3cC25441d2085450FCb2927c97e"
+  },
+  {
+    "contractName": "ExpiringMultiPartyLib",
+    "address": "0x8289B5DE9756200cBad972a8B71C4d8247C643b4"
+  },
+  {
+    "contractName": "ExpiringMultiPartyCreator",
+    "address": "0xF91E25E77Ee0688268432C4899Aa6f16b93327c8"
+  },
+  {
+    "contractName": "AddressWhitelist",
+    "address": "0xdcBED58a2DE536cE15049a91A7CA8399300C0978"
+  },
+  {
+    "contractName": "ExpiringMultiPartyLib",
+    "address": "0x57A494E6b9923fbb1903bc7A5aA6AA6fdb497969"
+  },
+  {
+    "contractName": "ExpiringMultiPartyCreator",
+    "address": "0x76a4581192797D6De6f82592A741cb29fd8f37aA"
+  },
+  {
+    "contractName": "AddressWhitelist",
+    "address": "0x9b309E4C1110DCf0Bd29f5a9135462b2C0E06992"
+  },
+  {
+    "contractName": "ExpiringMultiPartyLib",
+    "address": "0xae0adbdEd4c22395eF09657cE53C841d09Efde31"
+  },
+  {
+    "contractName": "ExpiringMultiPartyCreator",
+    "address": "0x914403fAA50175130E842ADD130DAe3e1a68698a"
+  }
+]

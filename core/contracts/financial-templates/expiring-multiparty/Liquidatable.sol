@@ -56,6 +56,7 @@ contract Liquidatable is PricelessPositionManager {
     struct ConstructorParams {
         // Params for PricelessPositionManager only.
         uint256 expirationTimestamp;
+        uint256 deploymentTimestamp;
         uint256 withdrawalLiveness;
         address collateralAddress;
         address finderAddress;
@@ -64,7 +65,6 @@ contract Liquidatable is PricelessPositionManager {
         bytes32 priceFeedIdentifier;
         string syntheticName;
         string syntheticSymbol;
-        FixedPoint.Unsigned minSponsorTokens;
         FixedPoint.Unsigned strikePrice;
         // Params specifically for Liquidatable.
         uint256 liquidationLiveness;
@@ -105,7 +105,6 @@ contract Liquidatable is PricelessPositionManager {
         uint256 indexed liquidationId,
         uint256 tokensOutstanding,
         uint256 lockedCollateral
-        // uint256 liquidatedCollateral
     );
     event LiquidationDisputed(
         address indexed sponsor,
@@ -147,6 +146,7 @@ contract Liquidatable is PricelessPositionManager {
         public
         PricelessPositionManager(
             params.expirationTimestamp,
+            params.deploymentTimestamp,
             params.withdrawalLiveness,
             params.collateralAddress,
             params.finderAddress,
@@ -154,7 +154,6 @@ contract Liquidatable is PricelessPositionManager {
             params.syntheticName,
             params.syntheticSymbol,
             params.tokenFactoryAddress,
-            params.minSponsorTokens,
             params.strikePrice,
             params.timerAddress
         )
@@ -187,33 +186,28 @@ contract Liquidatable is PricelessPositionManager {
      * @param sponsor address of the sponsor to liquidate.
      * @param maxTokensToLiquidate max number of tokens to liquidate.
      * @return liquidationId ID of the newly created liquidation.
-     * @return tokensLiquidated amount of synthetic tokens removed and liquidated from the `sponsor`'s position.
-     * @return finalFeeBond amount of collateral to be posted by liquidator and returned if not disputed successfully.
      */
     function createLiquidation(
         address sponsor,
+        address liquidator,
+        address empCreator,
         FixedPoint.Unsigned calldata maxTokensToLiquidate,
-        FixedPoint.Unsigned calldata assetPrice
-    )
-        external
-        fees()
-        onlyPreExpiration()
-        nonReentrant()
-        returns (
-            uint256 liquidationId,
-            FixedPoint.Unsigned memory tokensLiquidated,
-            FixedPoint.Unsigned memory finalFeeBond
-        )
-    {
+        FixedPoint.Unsigned calldata assetPrice,
+        FixedPoint.Unsigned calldata finalFeeBond,
+        FixedPoint.Unsigned calldata excessDeposit
+    ) external fees() onlyPreExpiration() nonReentrant() returns (uint256 liquidationId) {
         require(assetPrice.isLessThanOrEqual(strikePrice), "Above Strike Price");
 
         // Retrieve Position data for sponsor
         PositionData storage positionToLiquidate = _getPositionData(sponsor);
 
-        tokensLiquidated = FixedPoint.min(maxTokensToLiquidate, positionToLiquidate.tokensOutstanding);
+        FixedPoint.Unsigned memory tokensLiquidated = FixedPoint.min(
+            maxTokensToLiquidate,
+            positionToLiquidate.tokensOutstanding
+        );
 
         // Compute final fee at time of liquidation.
-        finalFeeBond = _computeFinalFees();
+        // FixedPoint.Unsigned memory finalFeeBond = _computeFinalFees();
 
         // These will be populated within the scope below.
         FixedPoint.Unsigned memory lockedCollateral;
@@ -222,8 +216,8 @@ contract Liquidatable is PricelessPositionManager {
         // Scoping to get rid of a stack too deep error.
         {
             // The actual amount of collateral that gets moved to the liquidation.
-            lockedCollateral = tokensLiquidated.mul(strikePrice.sub(assetPrice));
-            _reduceSponsorPosition(sponsor, tokensLiquidated, lockedCollateral);
+            lockedCollateral = excessDeposit.add(tokensLiquidated.mul(strikePrice.sub(assetPrice)));
+            _reduceSponsorPosition(sponsor, tokensLiquidated, tokensLiquidated.mul(strikePrice));
         }
 
         // Add to the global liquidation collateral count.
@@ -236,7 +230,7 @@ contract Liquidatable is PricelessPositionManager {
         liquidations[sponsor].push(
             LiquidationData({
                 sponsor: sponsor,
-                liquidator: msg.sender,
+                liquidator: liquidator,
                 state: Status.PreDispute,
                 liquidationTime: getCurrentTime(),
                 tokensOutstanding: tokensLiquidated,
@@ -257,11 +251,11 @@ contract Liquidatable is PricelessPositionManager {
         );
 
         // Destroy tokens
-        tokenCurrency.safeTransferFrom(msg.sender, address(this), tokensLiquidated.rawValue);
+        tokenCurrency.safeTransferFrom(empCreator, address(this), tokensLiquidated.rawValue);
         tokenCurrency.burn(tokensLiquidated.rawValue);
 
         // Pull final fee from liquidator.
-        collateralCurrency.safeTransferFrom(msg.sender, address(this), finalFeeBond.rawValue);
+        collateralCurrency.safeTransferFrom(empCreator, address(this), finalFeeBond.rawValue);
     }
 
     /**
@@ -312,28 +306,14 @@ contract Liquidatable is PricelessPositionManager {
         collateralCurrency.safeTransferFrom(msg.sender, address(this), disputeBondAmount.rawValue);
     }
 
-    /**
-     * @notice After a dispute has settled or after a non-disputed liquidation has expired,
-     * the sponsor, liquidator, and/or disputer can call this method to receive payments.
-     * @dev If the dispute SUCCEEDED: the sponsor, liquidator, and disputer are eligible for payment.
-     * If the dispute FAILED: only the liquidator can receive payment.
-     * Once all collateral is withdrawn, delete the liquidation data.
-     * @param liquidationId uniquely identifies the sponsor's liquidation.
-     * @param sponsor address of the sponsor associated with the liquidation.
-     * @return amountWithdrawn the total amount of underlying returned from the liquidation.
-     */
-    function withdrawLiquidation(uint256 liquidationId, address sponsor)
-        public
-        withdrawable(liquidationId, sponsor)
-        fees()
-        nonReentrant()
-        returns (FixedPoint.Unsigned memory amountWithdrawn)
-    {
+    function withdrawLiquidation(
+        uint256 liquidationId,
+        address sponsor,
+        address caller
+    ) public withdrawable(liquidationId, sponsor) fees() nonReentrant() {
         LiquidationData storage liquidation = _getLiquidationData(sponsor, liquidationId);
         require(
-            (msg.sender == liquidation.disputer) ||
-                (msg.sender == liquidation.liquidator) ||
-                (msg.sender == liquidation.sponsor),
+            (caller == liquidation.disputer) || (caller == liquidation.liquidator) || (caller == liquidation.sponsor),
             "Caller cannot withdraw rewards"
         );
 
@@ -341,20 +321,16 @@ contract Liquidatable is PricelessPositionManager {
         _settle(liquidationId, sponsor);
 
         // Calculate rewards as a function of the TRV.
-        // Note: all payouts are scaled by the unit collateral value so all payouts are charged the fees pro rata.
-        FixedPoint.Unsigned memory feeAttenuation = _getFeeAdjustedCollateral(liquidation.rawUnitCollateral);
-        FixedPoint.Unsigned memory tokenRedemptionValue = liquidation
-            .tokensOutstanding
-            .mul(strikePrice.sub(liquidation.settlementPrice))
-            .mul(feeAttenuation);
+        // FixedPoint.Unsigned memory feeAttenuation = _getFeeAdjustedCollateral(liquidation.rawUnitCollateral);
+        FixedPoint.Unsigned memory tokenRedemptionValue = liquidation.tokensOutstanding.mul(
+            strikePrice.sub(liquidation.settlementPrice)
+        ); // .mul(feeAttenuation);
         FixedPoint.Unsigned memory remainingPositionCollateral = liquidation.tokensOutstanding.mul(
             liquidation.settlementPrice
-        );
-        FixedPoint.Unsigned memory collateral = liquidation.lockedCollateral.mul(feeAttenuation);
+        ); // .mul(feeAttenuation);
         FixedPoint.Unsigned memory disputerDisputeReward = disputerDisputeRewardPct.mul(tokenRedemptionValue);
         FixedPoint.Unsigned memory sponsorDisputeReward = sponsorDisputeRewardPct.mul(tokenRedemptionValue);
-        FixedPoint.Unsigned memory disputeBondAmount = collateral.mul(disputeBondPct);
-        FixedPoint.Unsigned memory finalFee = liquidation.finalFee.mul(feeAttenuation);
+        FixedPoint.Unsigned memory disputeBondAmount = liquidation.lockedCollateral.mul(disputeBondPct);
 
         // There are three main outcome states: either the dispute succeeded, failed or was not updated.
         // Based on the state, different parties of a liquidation can withdraw different amounts.
@@ -363,24 +339,26 @@ contract Liquidatable is PricelessPositionManager {
         FixedPoint.Unsigned memory withdrawalAmount = FixedPoint.fromUnscaledUint(0);
         if (liquidation.state == Status.DisputeSucceeded) {
             // If the dispute is successful then all three users can withdraw from the contract.
-            if (msg.sender == liquidation.disputer) {
+            if (caller == liquidation.disputer) {
                 // Pay DISPUTER: disputer reward + dispute bond + returned final fee
-                FixedPoint.Unsigned memory payToDisputer = disputerDisputeReward.add(disputeBondAmount).add(finalFee);
+                FixedPoint.Unsigned memory payToDisputer = disputerDisputeReward.add(disputeBondAmount).add(
+                    liquidation.finalFee
+                );
                 withdrawalAmount = withdrawalAmount.add(payToDisputer);
                 delete liquidation.disputer;
             }
 
-            if (msg.sender == liquidation.sponsor) {
+            if (caller == liquidation.sponsor) {
                 // Pay SPONSOR: remaining collateral (collateral - TRV) + sponsor reward
                 withdrawalAmount = withdrawalAmount
-                    .add(collateral)
+                    .add(liquidation.lockedCollateral)
                     .sub(tokenRedemptionValue)
                     .add(sponsorDisputeReward)
                     .add(remainingPositionCollateral);
                 delete liquidation.sponsor;
             }
 
-            if (msg.sender == liquidation.liquidator) {
+            if (caller == liquidation.liquidator) {
                 // Pay LIQUIDATOR: TRV - dispute reward - sponsor reward
                 // If TRV > Collateral, then subtract rewards from collateral
                 // NOTE: This should never be below zero since we prevent (sponsorDisputePct+disputerDisputePct) >= 0 in
@@ -402,13 +380,13 @@ contract Liquidatable is PricelessPositionManager {
             }
             // In the case of a failed dispute only the liquidator can withdraw.
         } else if (liquidation.state == Status.DisputeFailed) {
-            if (msg.sender == liquidation.liquidator) {
+            if (caller == liquidation.liquidator) {
                 // Pay LIQUIDATOR: collateral + dispute bond + returned final fee
-                withdrawalAmount = collateral.add(disputeBondAmount).add(finalFee);
+                withdrawalAmount = liquidation.lockedCollateral.add(disputeBondAmount).add(liquidation.finalFee);
                 delete liquidation.liquidator;
             }
 
-            if (msg.sender == liquidation.sponsor) {
+            if (caller == liquidation.sponsor) {
                 withdrawalAmount = remainingPositionCollateral;
                 delete liquidation.sponsor;
             }
@@ -419,15 +397,15 @@ contract Liquidatable is PricelessPositionManager {
             // If the state is pre-dispute but time has passed liveness then there was no dispute. We represent this
             // state as a dispute failed and the liquidator can withdraw.
         } else if (liquidation.state == Status.PreDispute) {
-            if (msg.sender == liquidation.liquidator) {
+            if (caller == liquidation.liquidator) {
                 // Pay LIQUIDATOR: collateral + returned final fee
-                withdrawalAmount = collateral.add(finalFee);
+                withdrawalAmount = liquidation.lockedCollateral.add(liquidation.finalFee);
                 delete liquidation.liquidator;
             }
 
-            if (msg.sender == liquidation.sponsor) {
+            if (caller == liquidation.sponsor) {
                 // Pay LIQUIDATOR: collateral + returned final fee
-                withdrawalAmount = remainingPositionCollateral;
+                withdrawalAmount = remainingPositionCollateral.sub(liquidation.finalFee);
                 delete liquidation.sponsor;
             }
 
@@ -437,13 +415,9 @@ contract Liquidatable is PricelessPositionManager {
         }
 
         require(withdrawalAmount.isGreaterThan(0), "Invalid withdrawal amount");
-        // Decrease the total collateral held in liquidatable by the amount withdrawn.
-        amountWithdrawn = _removeCollateral(rawLiquidationCollateral, withdrawalAmount);
-        emit LiquidationWithdrawn(msg.sender, amountWithdrawn.rawValue, liquidation.state);
+        emit LiquidationWithdrawn(caller, withdrawalAmount.rawValue, liquidation.state);
         // Transfer amount withdrawn from this contract to the caller.
-        collateralCurrency.safeTransfer(msg.sender, amountWithdrawn.rawValue);
-
-        return withdrawalAmount;
+        collateralCurrency.safeTransfer(caller, withdrawalAmount.rawValue);
     }
 
     /**

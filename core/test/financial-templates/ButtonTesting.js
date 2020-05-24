@@ -1,4 +1,3 @@
-// Helper scripts
 const { toWei, fromWei, hexToUtf8, toBN, utf8ToHex } = web3.utils;
 const { didContractThrow } = require("../../../common/SolidityTestUtils.js");
 const truffleAssert = require("truffle-assertions");
@@ -38,9 +37,7 @@ contract("ExpiringMultiPartyCreator", function(accounts) {
   beforeEach(async () => {
     registry = await Registry.deployed();
     expiringMultiPartyCreator = await ExpiringMultiPartyCreator.deployed();
-    await registry.addMember(RegistryRolesEnum.CONTRACT_CREATOR, expiringMultiPartyCreator.address, {
-      from: contractCreator
-    });
+    await registry.addMember(1, expiringMultiPartyCreator.address, { from: contractCreator });
     // Whitelist collateral currency
     collateralTokenWhitelist = await AddressWhitelist.at(await expiringMultiPartyCreator.collateralTokenWhitelist());
     await collateralTokenWhitelist.addToWhitelist(TestnetERC20.address, { from: contractCreator });
@@ -50,19 +47,18 @@ contract("ExpiringMultiPartyCreator", function(accounts) {
     constructorParams = {
       // expirationTimestamp: (Math.round(Date.now() / 1000) + 1000).toString(),
       expirationTimestamp: "1590969600", // 1st June 2020
-      withdrawalLiveness: "1000",
+      withdrawalLiveness: "1",
       collateralAddress: TestnetERC20.address,
       finderAddress: Finder.address,
       tokenFactoryAddress: TokenFactory.address,
       priceFeedIdentifier: utf8ToHex("UMATEST"),
       syntheticName: "Potion Token ETH June",
       syntheticSymbol: "POTETH_JUNE",
-      liquidationLiveness: "1000",
+      liquidationLiveness: "1",
       collateralRequirement: { rawValue: toWei("1.0") },
       disputeBondPct: { rawValue: toWei("0.1") },
       sponsorDisputeRewardPct: { rawValue: toWei("0.1") },
       disputerDisputeRewardPct: { rawValue: toWei("0.1") },
-      minSponsorTokens: { rawValue: toWei("1") },
       strikePrice: { rawValue: toWei("100") },
       timerAddress: Timer.address
     };
@@ -86,7 +82,6 @@ contract("ExpiringMultiPartyCreator", function(accounts) {
       disputeBondPct: { rawValue: toWei("0.1") },
       sponsorDisputeRewardPct: { rawValue: toWei("0.1") },
       disputerDisputeRewardPct: { rawValue: toWei("0.1") },
-      minSponsorTokens: { rawValue: toWei("1") },
       strikePrice: { rawValue: toWei("50") },
       timerAddress: Timer.address
     };
@@ -111,14 +106,11 @@ contract("ExpiringMultiPartyCreator", function(accounts) {
       disputeBondPct: { rawValue: toWei("0.1") },
       sponsorDisputeRewardPct: { rawValue: toWei("0.1") },
       disputerDisputeRewardPct: { rawValue: toWei("0.1") },
-      minSponsorTokens: { rawValue: toWei("1") },
       strikePrice: { rawValue: toWei("100") },
       timerAddress: Timer.address
     };
     identifierWhitelist = await IdentifierWhitelist.deployed();
-    await identifierWhitelist.addSupportedIdentifier(constructorParams.priceFeedIdentifier, {
-      from: contractCreator
-    });
+    await identifierWhitelist.addSupportedIdentifier(constructorParams.priceFeedIdentifier, { from: contractCreator });
     tx = await expiringMultiPartyCreator.createExpiringMultiParty(constructorParams, { from: contractCreator });
     const e = await ExpiringMultiParty.at(tx.logs[0].args.expiringMultiPartyAddress);
 
@@ -167,7 +159,6 @@ contract("ExpiringMultiPartyCreator", function(accounts) {
       disputeBondPct: { rawValue: toWei("0.1") },
       sponsorDisputeRewardPct: { rawValue: toWei("0.1") },
       disputerDisputeRewardPct: { rawValue: toWei("0.1") },
-      minSponsorTokens: { rawValue: toWei("1") },
       strikePrice: { rawValue: toWei("100") },
       timerAddress: Timer.address
     };
@@ -221,7 +212,6 @@ contract("ExpiringMultiPartyCreator", function(accounts) {
       disputeBondPct: { rawValue: toWei("0.1") },
       sponsorDisputeRewardPct: { rawValue: toWei("0.1") },
       disputerDisputeRewardPct: { rawValue: toWei("0.1") },
-      minSponsorTokens: { rawValue: toWei("1") },
       strikePrice: { rawValue: toWei("100") },
       timerAddress: Timer.address
     };
@@ -254,7 +244,6 @@ contract("ExpiringMultiPartyCreator", function(accounts) {
       contractCreator,
       { rawValue: toWei("100") },
       { rawValue: toWei("50") },
-      unreachableDeadline,
       { from: putBuyer }
     );
 
@@ -300,7 +289,6 @@ contract("ExpiringMultiPartyCreator", function(accounts) {
       disputeBondPct: { rawValue: toWei("0.1") },
       sponsorDisputeRewardPct: { rawValue: toWei("0.1") },
       disputerDisputeRewardPct: { rawValue: toWei("0.1") },
-      minSponsorTokens: { rawValue: toWei("1") },
       strikePrice: { rawValue: toWei("100") },
       timerAddress: Timer.address
     };

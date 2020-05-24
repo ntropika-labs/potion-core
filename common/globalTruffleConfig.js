@@ -12,12 +12,16 @@ const mnemonic = process.env.MNEMONIC
   : "candy maple cake sugar pudding cream honey rich smooth crumble sweet treat";
 
 // Fallback to a public private key to prevent exceptions
-const privateKeys = [];
+const privateKeys = [
+  "58a0b87d1b848c54be8ee4cac993eaddd905901707dd52320750e18db2f419d1",
+  "a25a512a1a84f3b89cc9f7670824c72ffcb1470e3df8d82bc2da4904a1c58cbb"
+];
 
-const infuraApiKey = "a9f8657e0bb44f32b1f70eede3faacf9";
+const infuraApiKey = "37374137889c4d6fa7042b4fe463e319";
 
 // Default options
-const gasPx = 100000000000; // 20 gwei
+const gasPx = 20000000000;
+// 20 gwei
 const gas = 7000000; // 9000000; // Conservative estimate of the block gas limit.
 
 // Adds a public network.
